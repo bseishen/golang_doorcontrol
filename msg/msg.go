@@ -1,8 +1,10 @@
 package msg
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
+	"strings"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 type Msg struct {
@@ -14,20 +16,20 @@ type Msg struct {
 
 func New(topic string, broker string, user string, password string) *Msg {
 	return &Msg{
-		topic:    topic,
-		broker:   broker,
-		user:     user,
-		password: password,
+		topic:    strings.TrimSpace(topic),
+		broker:   strings.TrimSpace(broker),
+		user:     strings.TrimSpace(user),
+		password: strings.TrimSpace(password),
 	}
 }
 
 func (m *Msg) Message(msg string) {
-	o := mqtt.NewClientOptions()
-	o.AddBroker(m.broker)
-	o.SetClientID("RFID")
-	o.SetUsername(m.user)
-	o.SetPassword(m.password)
-	client := mqtt.NewClient(o)
+	options := mqtt.NewClientOptions()
+	options.AddBroker(m.broker)
+	options.SetClientID("RFID")
+	options.SetUsername(m.user)
+	options.SetPassword(m.password)
+	client := mqtt.NewClient(options)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		log.Println("MQTT ", token.Error())
 		return
@@ -35,6 +37,9 @@ func (m *Msg) Message(msg string) {
 
 	if token := client.Publish(m.topic, 1, false, msg); token.Wait() && token.Error() != nil {
 		log.Println("MQTT ", token.Error())
-		return
 	}
+
+	client.Disconnect(250)
+
+	return
 }

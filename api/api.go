@@ -2,10 +2,10 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -84,13 +84,17 @@ func (a *Api) CheckForUpdates() (updateRequired bool, getDat Data) {
 //Retreves and fills the Data structure of member data.
 func (a *Api) GetUsers() (memberdata Data) {
 
-	httpclient := &http.Client{}
+	//For some reason there is a return being tacked onto the apikey
+	var bearer = "Bearer " + strings.TrimSpace(a.apiKey)
+
 	req, err := http.NewRequest("GET", a.apiUrl, nil)
-	req.Header.Set("Authorization", "Bearer "+a.apiKey)
+
+	req.Header.Add("Authorization", bearer)
+
+	httpclient := &http.Client{}
 	resp, err := httpclient.Do(req)
 	if err != nil {
-		log.Println("Server did not respond")
-		log.Println(err)
+		log.Println("Error on response.\n[ERRO] -", err)
 		return
 	}
 
@@ -108,9 +112,9 @@ func (a *Api) GetUsers() (memberdata Data) {
 		return
 	}
 
-	for l := range memberdata.Members {
-		fmt.Println(memberdata.Members[l].Spoken_name)
-	}
+	// for l := range memberdata.Members {
+	// 	fmt.Println(memberdata.Members[l].Spoken_name)
+	// }
 
 	return
 }

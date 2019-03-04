@@ -16,10 +16,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-const (
-	appName = "RFID"
-)
-
 type Configuration struct {
 	SerialPort        string `default:"/dev/ttyUSB0"`
 	BaudRate          int    `default:"9600"`
@@ -29,11 +25,12 @@ type Configuration struct {
 	DBFile            string `default:"./rfid.sqlite"`
 	ApiUpdateInterval int    `default:"30"`
 	ApiUrl            string `default:"https://rfid.midsouthmakers.org/api/members"`
-	ApiKey            string `default:""`
-	MqttServer        string `default:"tcp://192.168.10.6:1883"`
+	ApiKey            string
+	MqttServer        string `default:"tcp://192.168.10.5:1883"`
 	MqttPassword      string `default:""`
 	MqttUsername      string `default:""`
-	MqttTopic         string `default:"/notifications/frontdoor"`
+	MqttTopic         string `default:"/frontdoor/notifications"`
+	MqttUnlockTopic   string `default:"/frontdoor/unlock"`
 }
 
 var (
@@ -50,16 +47,15 @@ func main() {
 	configure()
 
 	a := api.New(config.ApiUrl, config.ApiKey)
-	log.Println("API Complete")
 	s = *(store.New(config.DBFile))
-	log.Println("Database Init")
 	m = *(msg.New(config.MqttTopic, config.MqttServer, config.MqttUsername, config.MqttPassword))
-	log.Println("MQTT Configuration Complete")
+	//log.Println("MQTT Configuration Complete")
 
 	m.Message("RFID Application Started")
 	//Update the database immediatly.
 	_, d := a.CheckForUpdates()
 	s.UpdateDatabase(d)
+	m.Message("RFID Database Updated")
 
 	ticker := time.NewTicker(time.Second * time.Duration(config.ApiUpdateInterval))
 	quit := make(chan struct{})
@@ -70,6 +66,7 @@ func main() {
 				updateRequired, dbData := a.CheckForUpdates()
 				if updateRequired {
 					s.UpdateDatabase(dbData)
+					m.Message("RFID Database Updated")
 				}
 			case <-quit:
 				ticker.Stop()
@@ -79,7 +76,6 @@ func main() {
 	}()
 
 	for {
-		//time.Sleep(time.Second)
 		PollSerial()
 	}
 
@@ -91,7 +87,7 @@ func main() {
 
 func configure() {
 	// Collect configurations from env
-	err := envconfig.Process(appName, &config)
+	err := envconfig.Process("rfid", &config)
 	if err != nil {
 		log.Fatalf("Unable to process configuration: %v\n", err.Error())
 	}

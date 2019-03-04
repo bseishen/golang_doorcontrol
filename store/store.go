@@ -3,8 +3,10 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/bseishen/golang_doorcontrol/api"
 	"github.com/bseishen/golang_doorcontrol/user"
@@ -18,7 +20,7 @@ type Store struct {
 
 func New(file string) *Store {
 	return &Store{
-		dbFile: file,
+		dbFile: strings.TrimSpace(file),
 	}
 }
 
@@ -65,15 +67,15 @@ func (s *Store) FindUser(key int, pw string) (*user.User, error) {
 	}
 
 	if u == nil {
-		return nil, errors.New("Access Denied: User not found")
+		return nil, errors.New(fmt.Sprintf("Access DENIED: %i not found", key))
 	}
 
 	if u.Active == 0 {
-		return nil, errors.New("Access Denied: User is not Active")
+		return nil, errors.New(fmt.Sprintf("Access DENIED: %s is not Active", u.IrcName))
 	}
 
 	if !u.ValidatePass(pw) {
-		return nil, errors.New("Access DENIED: Incorrect keycode")
+		return nil, errors.New(fmt.Sprintf("Access DENIED to %s, Incorrect keycode", u.IrcName))
 	}
 
 	return u, nil
