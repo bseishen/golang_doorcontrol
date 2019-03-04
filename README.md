@@ -8,9 +8,9 @@ Webservice Repository:
 https://github.com/svpernova09/midsouthmakers-rfid
 
 ## Hardware
--Wiegand RFID reader and keypad
--Arduino Nano that acts as a Wiegand to serial bridge
--Raspberry pi (or other linux machine) running the software.
+- Wiegand RFID reader and keypad
+- Arduino Nano that acts as a Wiegand to serial bridge
+- Raspberry pi (or other linux machine) running the software.
 
 ## Wiegand to Serial
 Arduino code for a Arduino Nano is located in the Arduino directory.
