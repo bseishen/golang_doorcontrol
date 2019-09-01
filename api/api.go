@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,19 +37,15 @@ type Member struct {
 }
 
 type Data struct {
-	Timestamp struct {
-		Date          string  `json:"date"`
-		Timezone_type float64 `json:"timezone_type"`
-		Timezone      string  `json:"timezone"`
-	} `json:"timestamp"`
+	Date    string   `json:"timestamp"`
 	Members []Member `json:"members"`
 }
 
 type LoginAttempt struct {
-	Key       float64
-	Timestamp string
-	reason    string //success || bad key || bad password
-	result    string //success || failure
+	Key       int    `json:"key"`
+	Timestamp string `json:"timestamp"`
+	Reason    string `json:"reason"`
+	Result    string `json:"result"`
 }
 
 func New(apiUrl string, apiKey string) *Api {
@@ -58,11 +56,11 @@ func New(apiUrl string, apiKey string) *Api {
 	}
 }
 
-//Updates Sqlite database if the timestamp has changed in the JSON message. It always
+//CheckForUpdates updates the Sqlite database if the timestamp has changed in the JSON message. It always
 //updates on first run.
 func (a *Api) CheckForUpdates() (updateRequired bool, getDat Data) {
 	getDat = a.GetUsers()
-	t, _ := time.Parse("2006-01-02 15:04:05.000000", getDat.Timestamp.Date)
+	t, _ := time.Parse("2006-01-02 15:04:05.000000", getDat.Date)
 
 	if t.Equal(a.timestamp) {
 		//fmt.Printf("Database update not required\n")
@@ -81,13 +79,13 @@ func (a *Api) CheckForUpdates() (updateRequired bool, getDat Data) {
 
 }
 
-//Retreves and fills the Data structure of member data.
+//GetUsers Retreves and fills the Data structure of member data.
 func (a *Api) GetUsers() (memberdata Data) {
 
 	//For some reason there is a return being tacked onto the apikey
 	var bearer = "Bearer " + strings.TrimSpace(a.apiKey)
 
-	req, err := http.NewRequest("GET", a.apiUrl, nil)
+	req, err := http.NewRequest("GET", a.apiUrl+"/members", nil)
 
 	req.Header.Add("Authorization", bearer)
 
@@ -109,12 +107,47 @@ func (a *Api) GetUsers() (memberdata Data) {
 	if err != nil {
 		log.Println("Unmasrshaling error")
 		log.Println(err)
+		log.Println(string(b))
 		return
 	}
 
-	// for l := range memberdata.Members {
-	// 	fmt.Println(memberdata.Members[l].Spoken_name)
-	// }
+	return
+}
+
+//SendLoginAttempt sends the result of a login to the web api
+func (a *Api) SendLoginAttempt(key int, reason string, result string) {
+
+	unixtime := strconv.FormatInt(time.Now().Unix(), 10)
+
+	log.Println(unixtime)
+	la := LoginAttempt{key, unixtime, reason, result}
+
+	json, err := json.Marshal(la)
+	if err != nil {
+		log.Println("Masrshaling error")
+		return
+	}
+
+	req, err := http.NewRequest("POST", a.apiUrl+"/login-attempt", bytes.NewBuffer(json))
+
+	//For some reason there is a return being tacked onto the apikey
+	var bearer = "Bearer " + strings.TrimSpace(a.apiKey)
+	req.Header.Add("Authorization", bearer)
+	req.Header.Add("Content-Type", "application/json")
+
+	httpclient := &http.Client{}
+	resp, err := httpclient.Do(req)
+	if err != nil {
+		log.Println("Error on response.\n[ERRO] -", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+
+	if strings.Contains(string(b), "true") == false {
+		log.Println("Login attempt was not posted to the API Server")
+	}
 
 	return
 }

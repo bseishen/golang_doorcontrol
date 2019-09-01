@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 )
 
 type Configuration struct {
+	LogFile           string `default:"./rfid.log"`
 	SerialPort        string `default:"/dev/ttyUSB0"`
 	BaudRate          int    `default:"9600"`
 	DataBits          int    `default:"8"`
@@ -24,7 +26,7 @@ type Configuration struct {
 	MinimumReadSize   int    `default:"1"`
 	DBFile            string `default:"./rfid.sqlite"`
 	ApiUpdateInterval int    `default:"30"`
-	ApiUrl            string `default:"https://rfid.midsouthmakers.org/api/members"`
+	ApiUrl            string `default:"https://rfid.midsouthmakers.org/api"`
 	ApiKey            string
 	MqttServer        string `default:"tcp://192.168.10.5:1883"`
 	MqttPassword      string `default:""`
@@ -40,22 +42,30 @@ var (
 	key    int
 	pw     string
 	m      msg.Msg
+	a      api.Api
 )
 
 func main() {
 
+	f, err := os.OpenFile("./rfid.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+	wrt := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(wrt)
+
 	configure()
 
-	a := api.New(config.ApiUrl, config.ApiKey)
+	a = *(api.New(config.ApiUrl, config.ApiKey))
 	s = *(store.New(config.DBFile))
 	m = *(msg.New(config.MqttTopic, config.MqttServer, config.MqttUsername, config.MqttPassword))
-	//log.Println("MQTT Configuration Complete")
+	log.Println("MQTT Configuration Complete")
 
 	m.Message("RFID Application Started")
 	//Update the database immediatly.
 	_, d := a.CheckForUpdates()
 	s.UpdateDatabase(d)
-	m.Message("RFID Database Updated")
 
 	ticker := time.NewTicker(time.Second * time.Duration(config.ApiUpdateInterval))
 	quit := make(chan struct{})
@@ -122,7 +132,7 @@ func PollSerial() {
 	str := strings.ToLower(strings.TrimSpace(string(b)))
 
 	if str != "" {
-		log.Println("Message Received:", str)
+		//log.Println("Message Received:", str)
 		switch str[0] {
 		// RFID Key
 		case 'r':
@@ -146,6 +156,7 @@ func PollSerial() {
 			if err != nil {
 				log.Printf("Error: %v\n", err.Error())
 				m.Message(fmt.Sprintf(fmt.Sprintf("Error: %v\n", err.Error())))
+				a.SendLoginAttempt(key, err.Error(), "failure")
 				//Send error to keypad by sending an 'E'
 				WriteByte(byte('E'))
 			} else {
@@ -153,6 +164,7 @@ func PollSerial() {
 				WriteByte(byte('O'))
 				log.Printf("Access Granted for user %s (%v)", user.IrcName, user.Key)
 				m.Message(fmt.Sprintf("Access Granted for user %s", user.IrcName))
+				a.SendLoginAttempt(key, fmt.Sprintf("Access Granted for user %s (%v)", user.IrcName, user.Key), "success")
 			}
 
 			//clear key and pincode

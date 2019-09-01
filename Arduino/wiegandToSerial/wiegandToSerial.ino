@@ -15,13 +15,17 @@
  */
 
 #define DOOR_RELAY 7
-#define KEY_BUZZER 4
+#define KEY_BUZZER 8
 #define KEY_LED    5
+#define BELL       6
+#define D0         2
+#define D1         3
 
 #include <Wiegand.h>
 
 WIEGAND wg;
 char inbyte;
+byte escCount; //Pressed 3 times, ring the bell
 
 void toggleDoor(){
   digitalWrite(DOOR_RELAY, LOW);
@@ -47,21 +51,34 @@ void showError(){
   }
 }
 
+void ringBell(){
+  byte count = 2;
+
+  while(count){
+    count--;
+    digitalWrite(BELL,    LOW);
+    delay(300);
+    digitalWrite(BELL,    HIGH);
+    delay(500);
+  }
+}
+
 void setup() {
   pinMode(DOOR_RELAY, OUTPUT);
   pinMode(KEY_BUZZER, OUTPUT);
   pinMode(KEY_LED, OUTPUT);
+  pinMode(BELL, OUTPUT);
 
   digitalWrite(DOOR_RELAY, HIGH);
   digitalWrite(KEY_BUZZER, HIGH);
   digitalWrite(KEY_LED,    HIGH);
+  digitalWrite(BELL,       HIGH);
 
 	Serial.begin(9600);
-	wg.begin();
+	wg.begin(D0, 0, D1, 1);
 }
 
 void loop() {
-  //delay(200);
 
   //Wiegand Check and Send
   if(wg.available()){
@@ -79,15 +96,23 @@ void loop() {
         case 0x1B:
           Serial.write(wg.getCode());
           Serial.print("\n");
+          escCount++;
           break;
         //Enter
         case 0x0D:
           Serial.print("\n");
+          escCount = 0;
           break;
         //All other numbers
         default:
           Serial.print(wg.getCode());
+          escCount = 0;
       }
+    }
+
+    if(escCount > 2){
+      escCount = 0;
+      ringBell();
     }
   }
 
@@ -98,6 +123,9 @@ void loop() {
     }
     if(inbyte == 'E'){
       showError();
+    }
+    if(inbyte == 'B'){
+      ringBell();
     }
   }
 }

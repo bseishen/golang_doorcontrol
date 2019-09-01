@@ -83,6 +83,11 @@ func (s *Store) FindUser(key int, pw string) (*user.User, error) {
 
 //Deletes existing SQLite DB then Writes member data to a new SQLite database
 func (s *Store) UpdateDatabase(memberdata api.Data) {
+
+	if len(memberdata.Members) == 0 {
+		log.Println("memberdata struct has no objects to add to the database")
+		return
+	}
 	os.Remove(s.dbFile)
 
 	db, err := sql.Open("sqlite3", s.dbFile)
