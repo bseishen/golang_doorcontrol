@@ -36,13 +36,14 @@ type Configuration struct {
 }
 
 var (
-	config Configuration
-	sp     io.ReadWriteCloser
-	s      store.Store
-	key    int
-	pw     string
-	m      msg.Msg
-	a      api.Api
+	config   Configuration
+	sp       io.ReadWriteCloser
+	s        store.Store
+	key      int
+	pw       string
+	escCount int
+	m        msg.Msg
+	a        api.Api
 )
 
 func main() {
@@ -60,13 +61,13 @@ func main() {
 	a = *(api.New(config.ApiUrl, config.ApiKey))
 	s = *(store.New(config.DBFile))
 	m = *(msg.New(config.MqttTopic, config.MqttServer, config.MqttUsername, config.MqttPassword))
-	log.Println("MQTT Configuration Complete")
-
 	m.Message("RFID Application Started")
+
 	//Update the database immediatly.
 	_, d := a.CheckForUpdates()
 	s.UpdateDatabase(d)
 
+	//Database update Timer
 	ticker := time.NewTicker(time.Second * time.Duration(config.ApiUpdateInterval))
 	quit := make(chan struct{})
 	go func() {
@@ -85,6 +86,11 @@ func main() {
 		}
 	}()
 
+	//Listen to unlock commands over MQTT
+	ulock := make(chan bool)
+	m.Listen(ulock)
+	go pollUnlock(ulock)
+
 	for {
 		PollSerial()
 	}
@@ -93,6 +99,16 @@ func main() {
 	sp.Close()
 
 	return
+}
+
+func pollUnlock(c chan bool) {
+	val := <-c
+	if val == true {
+		WriteByte(byte('O'))
+		log.Printf("Unlocking the door via MQTT command")
+		m.Message("Unlocking the door via MQTT command")
+	}
+	pollUnlock(c)
 }
 
 func configure() {
@@ -122,7 +138,7 @@ func configure() {
 
 func PollSerial() {
 
-	//read serial till you hit a new line
+	//read serial till you hit a new line, this is blocking!
 	buf := bufio.NewReader(sp)
 	b, err := buf.ReadBytes('\n')
 	if err != nil {
@@ -140,14 +156,23 @@ func PollSerial() {
 			if err != nil {
 				log.Printf("Unable to convert [%v] to an integer: %v\n", string(b[1:]), err.Error())
 			}
+			escCount = 0
 		// Escape button
 		case 0x1B:
 			key = 0
 			pw = ""
 			err = nil
-		// Password
+			escCount++
+		// Password string (keycode)
 		default:
 			pw = str
+			escCount = 0
+		}
+
+		if escCount == 3 {
+			escCount = 0
+			log.Printf("Doorbell Rang!")
+			m.Message("Doorbell Rang!")
 		}
 
 		if pw != "" && key != 0 {

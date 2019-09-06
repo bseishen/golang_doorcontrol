@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"strconv"
 	"strings"
 	"time"
@@ -60,7 +61,7 @@ func New(apiUrl string, apiKey string) *Api {
 //updates on first run.
 func (a *Api) CheckForUpdates() (updateRequired bool, getDat Data) {
 	getDat = a.GetUsers()
-	t, _ := time.Parse("2006-01-02 15:04:05.000000", getDat.Date)
+	t, _ := time.Parse("2006-01-02T15:04:05.000000Z", getDat.Date)
 
 	if t.Equal(a.timestamp) {
 		//fmt.Printf("Database update not required\n")
@@ -89,6 +90,9 @@ func (a *Api) GetUsers() (memberdata Data) {
 
 	req.Header.Add("Authorization", bearer)
 
+	//Capture debug information
+	dump, err := httputil.DumpRequestOut(req, true)
+
 	httpclient := &http.Client{}
 	resp, err := httpclient.Do(req)
 	if err != nil {
@@ -107,7 +111,7 @@ func (a *Api) GetUsers() (memberdata Data) {
 	if err != nil {
 		log.Println("Unmasrshaling error")
 		log.Println(err)
-		log.Println(string(b))
+		log.Println("SENT:\n" + string(dump) + "RETURNED:\n" + string(b))
 		return
 	}
 
@@ -118,8 +122,6 @@ func (a *Api) GetUsers() (memberdata Data) {
 func (a *Api) SendLoginAttempt(key int, reason string, result string) {
 
 	unixtime := strconv.FormatInt(time.Now().Unix(), 10)
-
-	log.Println(unixtime)
 	la := LoginAttempt{key, unixtime, reason, result}
 
 	json, err := json.Marshal(la)

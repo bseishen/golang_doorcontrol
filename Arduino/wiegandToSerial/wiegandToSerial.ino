@@ -88,6 +88,7 @@ void loop() {
       Serial.print("R");
       Serial.print(wg.getCode());
       Serial.print("\n");
+      escCount = 0;
 
     //Keypresses are going to be 4 bit (usually).
     }else{
