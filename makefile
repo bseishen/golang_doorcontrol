@@ -5,6 +5,9 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 
+#CGO cross compiler for  pi
+CC=arm-linux-gnueabihf-gcc
+
 # Binary names
 BINARY_NAME=door_control
 BINARY_UNIX=$(BINARY_NAME)_rpi
@@ -27,6 +30,7 @@ deps:
 
 # Cross compilation
 build-pi:
-		CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 $(GOBUILD) -o $(BINARY_UNIX) -v
+		CC=$(CC) GOOS=linux GOARCH=arm GOARM=5 CGO_ENABLED=1 $(GOBUILD) -v -x -o $(BINARY_UNIX)  -ldflags="-extld=$(CC) "
+
 docker-build:
 		docker run --rm -it -v "$(GOPATH)":/go -w /go/src/bitbucket.org/rsohlich/makepost golang:latest go build -o "$(BINARY_UNIX)" -v
