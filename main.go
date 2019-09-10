@@ -77,7 +77,7 @@ func main() {
 				updateRequired, dbData := a.CheckForUpdates()
 				if updateRequired {
 					s.UpdateDatabase(dbData)
-					m.Message("RFID Database Updated")
+					log.Println("RFID Database Updated")
 				}
 			case <-quit:
 				ticker.Stop()
@@ -105,8 +105,8 @@ func pollUnlock(c chan bool) {
 	val := <-c
 	if val == true {
 		WriteByte(byte('O'))
-		log.Printf("Unlocking the door via MQTT command")
-		m.Message("Unlocking the door via MQTT command")
+		log.Println("Unlocking the door via MQTT command")
+		m.Message("Door opened, come in!")
 	}
 	pollUnlock(c)
 }
@@ -154,7 +154,7 @@ func PollSerial() {
 		case 'r':
 			key, err = strconv.Atoi(strings.TrimPrefix(str, "r"))
 			if err != nil {
-				log.Printf("Unable to convert [%v] to an integer: %v\n", string(b[1:]), err.Error())
+				log.Println("Unable to convert [%v] to an integer: %v\n", string(b[1:]), err.Error())
 			}
 			escCount = 0
 		// Escape button
