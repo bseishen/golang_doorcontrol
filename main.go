@@ -143,6 +143,11 @@ func PollSerial() {
 	b, err := buf.ReadBytes('\n')
 	if err != nil {
 		log.Printf("Error reading: %v\n", err)
+
+		//If there is an error (Typically EOF due to the serial port dissapearing) wait a couple of seconds.
+		time.Sleep(10 * time.Second)
+
+		return
 	}
 
 	str := strings.ToLower(strings.TrimSpace(string(b)))
