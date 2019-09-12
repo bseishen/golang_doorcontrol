@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -38,6 +39,7 @@ type Configuration struct {
 var (
 	config   Configuration
 	sp       io.ReadWriteCloser
+	so       serial.OpenOptions
 	s        store.Store
 	key      int
 	pw       string
@@ -91,8 +93,29 @@ func main() {
 	m.Listen(ulock)
 	go pollUnlock(ulock)
 
+	//Poll the serial, reconnect serial if needed.
 	for {
-		PollSerial()
+		serialErr := PollSerial()
+
+		//If there is an error (Typically EOF due to the serial port dissapearing) wait a couple of seconds and reconnect
+		if serialErr != nil {
+
+			log.Printf("%v\n", err)
+			time.Sleep(10 * time.Second)
+
+			if sp != nil {
+				sp.Close()
+			}
+
+			sp, err = serial.Open(so)
+
+			if err != nil {
+				log.Printf("Error opening serial port: %v\n", err)
+			} else {
+				log.Println("Port " + config.SerialPort + " opened.")
+			}
+		}
+
 	}
 
 	log.Fatal("We somehow have arrived at a point that is never supposed to happen, cleaning up\n")
@@ -121,33 +144,35 @@ func configure() {
 	log.Println("Opening serial port " + config.SerialPort)
 
 	//Create serial port
-	sp, err = serial.Open(serial.OpenOptions{
+	so = serial.OpenOptions{
 		PortName:        config.SerialPort,
 		BaudRate:        uint(config.BaudRate),
 		DataBits:        uint(config.DataBits),
 		StopBits:        uint(config.StopBits),
 		MinimumReadSize: uint(config.MinimumReadSize),
-	})
+	}
+	sp, err = serial.Open(so)
 
 	if err != nil {
-		log.Fatalf("Error opening serial port: %v\n", err)
+		log.Println("Error opening serial port: %v\n", err)
+	} else {
+		log.Println("Port " + config.SerialPort + " opened.")
 	}
 
 	log.Println("Configuration complete")
 }
 
-func PollSerial() {
+func PollSerial() error {
+
+	if sp == nil {
+		return errors.New("Serial port is not open")
+	}
 
 	//read serial till you hit a new line, this is blocking!
 	buf := bufio.NewReader(sp)
 	b, err := buf.ReadBytes('\n')
 	if err != nil {
-		log.Printf("Error reading: %v\n", err)
-
-		//If there is an error (Typically EOF due to the serial port dissapearing) wait a couple of seconds.
-		time.Sleep(10 * time.Second)
-
-		return
+		return errors.New("Error reading from serial buffer")
 	}
 
 	str := strings.ToLower(strings.TrimSpace(string(b)))
@@ -201,12 +226,16 @@ func PollSerial() {
 			pw = ""
 			key = 0
 		}
-
 	}
+
+	return nil
 }
 
 func WriteByte(a byte) {
 	b := []byte{0x00}
 	b[0] = a
-	sp.Write(b)
+	if sp != nil {
+		sp.Write(b)
+	}
+
 }
