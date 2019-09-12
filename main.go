@@ -141,8 +141,6 @@ func configure() {
 		log.Fatalf("Unable to process configuration: %v\n", err.Error())
 	}
 
-	log.Println("Opening serial port " + config.SerialPort)
-
 	//Create serial port
 	so = serial.OpenOptions{
 		PortName:        config.SerialPort,
