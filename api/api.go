@@ -57,8 +57,8 @@ func New(apiUrl string, apiKey string) *Api {
 	}
 }
 
-//CheckForUpdates updates the Sqlite database if the timestamp has changed in the JSON message. It always
-//updates on first run.
+// CheckForUpdates updates the Sqlite database if the timestamp has changed in the JSON message. It always
+// updates on first run.
 func (a *Api) CheckForUpdates() (updateRequired bool, getDat Data) {
 	getDat = a.GetUsers()
 	t, _ := time.Parse("2006-01-02T15:04:05.000000Z", getDat.Date)
@@ -80,7 +80,7 @@ func (a *Api) CheckForUpdates() (updateRequired bool, getDat Data) {
 
 }
 
-//GetUsers Retreves and fills the Data structure of member data.
+// GetUsers Retreves and fills the Data structure of member data.
 func (a *Api) GetUsers() (memberdata Data) {
 
 	//For some reason there is a return being tacked onto the apikey
@@ -119,7 +119,7 @@ func (a *Api) GetUsers() (memberdata Data) {
 	return
 }
 
-//SendLoginAttempt sends the result of a login to the web api
+// SendLoginAttempt sends the result of a login to the web api
 func (a *Api) SendLoginAttempt(key int, reason string, result string) {
 
 	unixtime := strconv.FormatInt(time.Now().Unix(), 10)
@@ -151,6 +151,8 @@ func (a *Api) SendLoginAttempt(key int, reason string, result string) {
 
 	if strings.Contains(string(b), "true") == false {
 		log.Println("Login attempt was not posted to the API Server")
+		// print out the contents of b
+		log.Println("Returned: " + string(b))
 	}
 
 	return
