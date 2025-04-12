@@ -89,6 +89,7 @@ func (a *Api) GetUsers() (memberdata Data) {
 	req, err := http.NewRequest("GET", a.apiUrl+"/members", nil)
 
 	req.Header.Add("Authorization", bearer)
+	req.Header.Add("Accept", "application/json")
 
 	//Capture debug information
 	dump, err := httputil.DumpRequestOut(req, true)
@@ -136,6 +137,7 @@ func (a *Api) SendLoginAttempt(key int, reason string, result string) {
 	var bearer = "Bearer " + strings.TrimSpace(a.apiKey)
 	req.Header.Add("Authorization", bearer)
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
 
 	httpclient := &http.Client{}
 	resp, err := httpclient.Do(req)
