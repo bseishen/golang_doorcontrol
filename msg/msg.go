@@ -39,7 +39,15 @@ func connect(m *Msg) mqtt.Client {
 	opts.SetUsername(m.user)
 	opts.SetPassword(m.password)
 	opts.SetCleanSession(false)
-	opts.SetConnectTimeout(0)
+	opts.SetKeepAlive(2 * time.Second)
+	opts.SetPingTimeout(1 * time.Second)
+
+	// Uncomment to DEBUG MQTT
+	//mqtt.ERROR = log.New(os.Stdout, "[ERROR] ", 0)
+	//mqtt.CRITICAL = log.New(os.Stdout, "[CRIT] ", 0)
+	//mqtt.WARN = log.New(os.Stdout, "[WARN]  ", 0)
+	//mqtt.DEBUG = log.New(os.Stdout, "[DEBUG] ", 0)
+
 	client := mqtt.NewClient(opts)
 	token := client.Connect()
 	for !token.WaitTimeout(3 * time.Second) {
@@ -47,7 +55,7 @@ func connect(m *Msg) mqtt.Client {
 	if err := token.Error(); err != nil {
 		log.Fatal(err)
 	}
-	log.Println("MQTT Connected Sucessfully")
+	log.Println("MQTT Connected Successfully")
 
 	return client
 }
